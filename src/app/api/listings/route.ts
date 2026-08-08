@@ -121,19 +121,23 @@ export async function POST(request: Request) {
 
     let imageUrl = null;
     if (imageFile) {
-      // Basic base64 to file conversion
-      try {
-        const base64Data = imageFile.replace(/^data:image\/\w+;base64,/, "");
-        const buffer = Buffer.from(base64Data, 'base64');
-        const filename = `parking-${Date.now()}.jpg`;
-        const fs = require('fs');
-        const path = require('path');
-        const filePath = path.join(process.cwd(), 'public', 'uploads', filename);
-        fs.writeFileSync(filePath, buffer);
-        imageUrl = `/uploads/${filename}`;
-      } catch (err) {
-        console.error("Error saving image:", err);
-        return NextResponse.json({ error: "Failed to save image." }, { status: 500 });
+      if (imageFile.startsWith("http://") || imageFile.startsWith("https://")) {
+        imageUrl = imageFile;
+      } else {
+        // Basic base64 to file conversion
+        try {
+          const base64Data = imageFile.replace(/^data:image\/\w+;base64,/, "");
+          const buffer = Buffer.from(base64Data, 'base64');
+          const filename = `parking-${Date.now()}.jpg`;
+          const fs = require('fs');
+          const path = require('path');
+          const filePath = path.join(process.cwd(), 'public', 'uploads', filename);
+          fs.writeFileSync(filePath, buffer);
+          imageUrl = `/uploads/${filename}`;
+        } catch (err) {
+          console.error("Error saving image:", err);
+          return NextResponse.json({ error: "Failed to save image." }, { status: 500 });
+        }
       }
     }
 

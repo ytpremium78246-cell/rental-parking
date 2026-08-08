@@ -898,16 +898,26 @@ export default function OwnerDashboard() {
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0]">
                   <div>
                     <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
-                      Parking Space Image <span className="text-red-500">*</span>
+                      Parking Space Image (Upload OR Web URL) <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      required
-                      onChange={handleImageUpload}
-                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
-                    />
-                    {formData.imageFile && <p className="text-xs text-green-600 mt-1">Image attached successfully.</p>}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                      />
+                      <span className="text-xs text-[#7a7a7a] self-center">OR</span>
+                      <input
+                        type="url"
+                        placeholder="https://example.com/image.jpg"
+                        value={formData.imageFile.startsWith("http") ? formData.imageFile : ""}
+                        onChange={(e) => setFormData({ ...formData, imageFile: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                      />
+                    </div>
+                    {formData.imageFile && !formData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image attached successfully.</p>}
+                    {formData.imageFile && formData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image URL added.</p>}
                   </div>
 
                   <div>
