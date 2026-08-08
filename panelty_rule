@@ -6,3 +6,8 @@ If 20% ≥ ₹10 → increase by 20%.
 Sequence: ₹10 → ₹20 → ₹30 → ₹40 → ₹50 → ₹60 → ₹72 → ₹86.40 → ₹103.68…
 
 At ₹50, 20% = ₹10, so from there it switches to 20% growth.
+
+if (currentPenalty * 0.20) < 10
+    nextPenalty = currentPenalty + 10
+else
+    nextPenalty = currentPenalty * 1.20
