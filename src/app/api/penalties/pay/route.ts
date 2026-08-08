@@ -34,8 +34,16 @@ export async function POST(request: Request) {
         where: { id: penalty.id },
         data: {
           status: newStatus,
-          paidAt: new Date(),
+          paymentClaimedAt: new Date(),
           paymentRef: paymentRef || `UPI-PENALTY-${Math.floor(100000 + Math.random() * 900000)}`,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "DRIVER_CLAIMED_PENALTY_PAYMENT",
+          details: `Penalty ${penalty.id}, Amount: ₹${penalty.amount}`,
         },
       });
 

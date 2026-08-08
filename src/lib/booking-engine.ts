@@ -8,6 +8,28 @@ import {
   VALID_BOOKING_TRANSITIONS,
 } from "./constants";
 
+async function calculateDynamicPenalty(tx: any, userId: string, reasonMatch: string): Promise<number> {
+  const lastPenalty = await tx.penaltyLedger.findFirst({
+    where: {
+      userId: userId,
+      reason: { contains: reasonMatch },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  let currentPenalty = lastPenalty ? lastPenalty.amount : 0;
+  let nextPenalty = 10;
+
+  if (currentPenalty > 0) {
+    if ((currentPenalty * 0.20) < 10) {
+      nextPenalty = currentPenalty + 10;
+    } else {
+      nextPenalty = currentPenalty * 1.20;
+    }
+  }
+  return Math.round(nextPenalty * 100) / 100;
+}
+
 export function validateStateTransition(currentStatus: string, nextStatus: string): boolean {
   const allowed = VALID_BOOKING_TRANSITIONS[currentStatus];
   if (!allowed) return false;
@@ -40,7 +62,7 @@ export async function cancelBookingByDriver(bookingId: string, driverUserId: str
 
   await prisma.$transaction(async (tx) => {
     if (isPenaltyApplicable) {
-      penaltyAmount = PENALTY_AMOUNT_INR;
+      penaltyAmount = await calculateDynamicPenalty(tx, driverUserId, "Driver cancelled booking");
 
       // 1. Create Penalty Ledger
       await tx.penaltyLedger.create({
@@ -48,7 +70,9 @@ export async function cancelBookingByDriver(bookingId: string, driverUserId: str
           userId: driverUserId,
           aggrievedUserId: booking.ownerId,
           bookingId: booking.id,
-          amount: PENALTY_AMOUNT_INR,
+          amount: penaltyAmount,
+          principalAmount: penaltyAmount,
+          remainingAmount: penaltyAmount,
           reason: `Driver cancelled booking #${booking.bookingCode} after ${DRIVER_FREE_CANCELLATION_MINS}-minute grace period (${Math.round(minutesSinceAcceptance)} mins elapsed since acceptance)`,
           status: "OUTSTANDING",
         },
@@ -104,6 +128,7 @@ export async function cancelBookingByDriver(bookingId: string, driverUserId: str
 export async function cancelBookingByOwner(bookingId: string, ownerUserId: string, reason: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
+    include: { listing: true },
   });
 
   if (!booking) throw new Error("Booking not found");
@@ -115,22 +140,33 @@ export async function cancelBookingByOwner(bookingId: string, ownerUserId: strin
   const now = new Date();
   const acceptedAt = booking.updatedAt || booking.createdAt;
   const minutesSinceAcceptance = (now.getTime() - new Date(acceptedAt).getTime()) / (1000 * 60);
-  const isPenaltyApplicable = minutesSinceAcceptance > OWNER_GRACE_PERIOD_MINS;
+  
+  const hasTimerStarted = !!booking.timerStartedAt;
+  const isPenaltyApplicable = hasTimerStarted || (minutesSinceAcceptance > OWNER_GRACE_PERIOD_MINS);
 
   let penaltyAmount = 0;
+  let penaltyReason = "";
 
   await prisma.$transaction(async (tx) => {
     if (isPenaltyApplicable) {
-      penaltyAmount = PENALTY_AMOUNT_INR;
-
+      if (hasTimerStarted) {
+        // Penalty is double the initial expected booking amount
+        penaltyAmount = booking.amount * 2;
+        penaltyReason = `Owner cancelled an ACTIVE parking session (OTP verified). Assessed double the expected booking cost (₹${booking.amount} x 2 = ₹${penaltyAmount}).`;
+      } else {
+        penaltyAmount = await calculateDynamicPenalty(tx, ownerUserId, "Owner cancelled booking");
+        penaltyReason = `Owner cancelled booking #${booking.bookingCode} after ${OWNER_GRACE_PERIOD_MINS}-minute grace period (${Math.round(minutesSinceAcceptance)} mins elapsed)`;
+      }
       // 1. Create Penalty Ledger for Owner
       await tx.penaltyLedger.create({
         data: {
           userId: ownerUserId,
           aggrievedUserId: booking.driverId,
           bookingId: booking.id,
-          amount: PENALTY_AMOUNT_INR,
-          reason: `Owner cancelled booking #${booking.bookingCode} after ${OWNER_GRACE_PERIOD_MINS}-minute grace period (${Math.round(minutesSinceAcceptance)} mins elapsed)`,
+          amount: penaltyAmount,
+          principalAmount: penaltyAmount,
+          remainingAmount: penaltyAmount,
+          reason: penaltyReason,
           status: "OUTSTANDING",
         },
       });

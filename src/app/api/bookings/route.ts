@@ -9,6 +9,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const now = new Date();
+
     let bookings;
     if (user.role === "ADMIN") {
       bookings = await prisma.booking.findMany({
@@ -100,7 +102,24 @@ export async function POST(request: Request) {
     const totalHours = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600)));
     const totalAmount = totalHours * listing.ratePerHour;
 
+    const overlappingBookingsCount = await prisma.booking.count({
+      where: {
+        listingId: listing.id,
+        status: { in: ["Pending", "Accepted"] },
+        startTime: { lt: end },
+        endTime: { gt: start },
+      },
+    });
+
+    if (overlappingBookingsCount >= listing.totalSlots) {
+      return NextResponse.json(
+        { error: `This parking space is fully booked for the requested time (${overlappingBookingsCount}/${listing.totalSlots} slots occupied).` }, 
+        { status: 409 }
+      );
+    }
+
     const bookingCode = `PKIN-${Math.floor(10000 + Math.random() * 90000)}`;
+    const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
 
     const newBooking = await prisma.booking.create({
       data: {
@@ -117,6 +136,7 @@ export async function POST(request: Request) {
         vehicleType: listing.slotType,
         paymentMode: paymentMode || "UPI",
         paymentStatus: "PENDING",
+        verificationCode,
       },
       include: {
         listing: true,

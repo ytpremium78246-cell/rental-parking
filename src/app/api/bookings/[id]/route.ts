@@ -10,7 +10,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { action, reason, transactionRef } = await request.json();
+    const body = await request.json();
+    const { action, reason, transactionRef } = body;
     const bookingId = params.id;
 
     const booking = await prisma.booking.findUnique({
@@ -109,9 +110,85 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         return NextResponse.json({ success: true, booking: updated });
       }
 
+      case "VERIFY_CODE": {
+        if (booking.ownerId !== user.id && user.role !== "ADMIN") {
+          return NextResponse.json({ error: "Only spot owner can verify code" }, { status: 403 });
+        }
+        if (booking.verificationCode !== body.code) {
+          return NextResponse.json({ error: "Invalid verification code" }, { status: 400 });
+        }
+        if (booking.timerStartedAt) {
+          return NextResponse.json({ error: "Parking session already started" }, { status: 400 });
+        }
+
+        const updated = await prisma.booking.update({
+          where: { id: bookingId },
+          data: { timerStartedAt: new Date() },
+        });
+
+        await prisma.notification.create({
+          data: {
+            userId: booking.driverId,
+            title: "Parking Session Started ⏱️",
+            message: `Owner verified your code. Your physical parking timer has started.`,
+            type: "BOOKING_UPDATE",
+          },
+        });
+
+        return NextResponse.json({ success: true, booking: updated });
+      }
+
+      case "STOP_PARKING_TIMER": {
+        if (booking.ownerId !== user.id && booking.driverId !== user.id && user.role !== "ADMIN") {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+        if (!booking.timerStartedAt) {
+          return NextResponse.json({ error: "Parking timer hasn't started yet" }, { status: 400 });
+        }
+        if (booking.timerEndedAt) {
+          return NextResponse.json({ error: "Parking timer already stopped" }, { status: 400 });
+        }
+
+        const timerEndedAt = new Date();
+        const durationMs = timerEndedAt.getTime() - new Date(booking.timerStartedAt).getTime();
+        const totalHours = Math.max(1, Math.ceil(durationMs / (1000 * 3600)));
+        
+        // Fetch listing for rate
+        const listing = await prisma.parkingListing.findUnique({ where: { id: booking.listingId } });
+        if (!listing) return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+
+        const finalAmount = totalHours * listing.ratePerHour;
+
+        const updated = await prisma.booking.update({
+          where: { id: bookingId },
+          data: { 
+            timerEndedAt,
+            amount: finalAmount,
+            totalHours,
+            status: "Completed", // Ends the physical part, awaiting payment
+          },
+        });
+
+        const notifyUserId = user.id === booking.driverId ? booking.ownerId : booking.driverId;
+        await prisma.notification.create({
+          data: {
+            userId: notifyUserId,
+            title: "Parking Session Ended 🏁",
+            message: `The physical parking session ended. Final duration: ${totalHours} hrs. Amount: ₹${finalAmount}.`,
+            type: "BOOKING_UPDATE",
+          },
+        });
+
+        return NextResponse.json({ success: true, booking: updated });
+      }
+
       case "DRIVER_CONFIRM_PAYMENT": {
         if (booking.driverId !== user.id) {
           return NextResponse.json({ error: "Only driver can submit payment confirmation" }, { status: 403 });
+        }
+
+        if (booking.paymentStatus === "DRIVER_CONFIRMED" || booking.paymentStatus === "SETTLED") {
+          return NextResponse.json({ error: "Payment already claimed" }, { status: 400 });
         }
 
         const updated = await prisma.booking.update({
@@ -119,6 +196,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
           data: {
             paymentStatus: "DRIVER_CONFIRMED",
             driverConfirmedAt: new Date(),
+            paymentClaimedAt: new Date(),
+            paymentClaimedBy: user.id,
           },
         });
 
@@ -138,6 +217,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             title: "Driver Sent Payment!",
             message: `Driver confirmed direct ${booking.paymentMode} payment of ₹${booking.amount}. Please verify and confirm receipt.`,
             type: "BOOKING_UPDATE",
+          },
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: "DRIVER_CLAIMED_PAYMENT",
+            details: `Booking ${booking.bookingCode}`,
           },
         });
 
@@ -186,6 +273,109 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             type: "BOOKING_UPDATE",
           },
         });
+
+        return NextResponse.json({ success: true, booking: updated });
+      }
+
+      case "OWNER_REJECT_PAYMENT": {
+        if (booking.ownerId !== user.id && user.role !== "ADMIN") {
+          return NextResponse.json({ error: "Only spot owner can reject payment receipt" }, { status: 403 });
+        }
+
+        const driver = await prisma.user.findUnique({ where: { id: booking.driverId } });
+        if (!driver) {
+           return NextResponse.json({ error: "Driver not found" }, { status: 404 });
+        }
+
+        const newWarningsCount = (driver.falsePaymentWarnings || 0) + 1;
+        const penaltyAmount = 0.20 * booking.amount;
+
+        try {
+          // Update driver trust score and warnings
+          await prisma.user.update({
+            where: { id: booking.driverId },
+            data: {
+              trustScore: { decrement: 3 },
+              falsePaymentWarnings: newWarningsCount,
+            }
+          });
+        } catch (err) {
+          // Fallback if Prisma schema is out of sync (falsePaymentWarnings missing)
+          await prisma.user.update({
+            where: { id: booking.driverId },
+            data: { trustScore: { decrement: 3 } }
+          });
+        }
+
+        const updated = await prisma.booking.update({
+          where: { id: bookingId },
+          data: {
+            status: "Disputed",
+            paymentStatus: "PENDING",
+            disputeStatus: "OPEN",
+            disputeReason: reason,
+            disputedAt: new Date(),
+            disputedBy: user.id,
+          },
+        });
+
+        // Push the unpaid booking amount directly into the Penalty Ledger
+        // This freezes the driver's account until they pay the owner.
+        const isThirdStrike = newWarningsCount >= 3;
+        const amountOwed = isThirdStrike ? booking.amount + penaltyAmount : booking.amount;
+
+        await prisma.penaltyLedger.create({
+          data: {
+            userId: booking.driverId,
+            aggrievedUserId: booking.ownerId,
+            bookingId: bookingId,
+            amount: amountOwed, // Legacy support
+            principalAmount: booking.amount,
+            fineAmount: isThirdStrike ? penaltyAmount : 0.0,
+            remainingAmount: amountOwed,
+            paidAmount: 0.0,
+            reason: isThirdStrike
+              ? `Unpaid booking ${booking.bookingCode} + 20% penalty fee for 3rd false payment strike.`
+              : `Unpaid booking ${booking.bookingCode} (Marked as False Request by owner).`,
+            status: "OUTSTANDING",
+          }
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: "OWNER_DISPUTED_PAYMENT",
+            details: `Booking ${booking.bookingCode}, Reason: ${reason}`,
+          },
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: booking.driverId,
+            action: "PENALTY_CREATED",
+            details: `Amount: ₹${amountOwed}, 3rd Strike: ${isThirdStrike}`,
+          },
+        });
+
+        if (isThirdStrike) {
+          await prisma.notification.create({
+            data: {
+              userId: booking.driverId,
+              title: "Payment Dispute / Penalty Assessed ⚠️",
+              message: `Owner marked your payment request as FALSE (Strike ${newWarningsCount}). The unpaid booking + a 20% penalty has been added to your ledger. Your trust score was reduced by 3 points.`,
+              type: "PENALTY_ALERT",
+            },
+          });
+        } else {
+          await prisma.notification.create({
+            data: {
+              userId: booking.driverId,
+              title: "Payment Dispute Warning ⚠️",
+              message: `Owner marked your payment request as FALSE. The unpaid amount is now in your penalty ledger. This is warning ${newWarningsCount} of 3. Your trust score was reduced by 3 points.`,
+              type: "SYSTEM",
+            },
+          });
+        }
 
         return NextResponse.json({ success: true, booking: updated });
       }

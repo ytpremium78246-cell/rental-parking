@@ -26,6 +26,7 @@ model User {
   role          String   @default("DRIVER") // DRIVER | OWNER | ADMIN
   passwordHash  String
   trustScore    Int      @default(100)
+  falsePaymentWarnings Int @default(0)
   isVerified    Boolean  @default(false)
   language      String   @default("en") // "en" | "hi"
   upiId         String?
@@ -108,14 +109,23 @@ model Booking {
   status              String        @default("Pending") // Pending | Accepted | Rejected | Expired | CancelledByDriver | CancelledByOwner | MutualCancel | Completed | NoShow | Disputed
   startTime           DateTime
   endTime             DateTime
+  timerStartedAt      DateTime?
+  timerEndedAt        DateTime?
   totalHours          Float
   amount              Float
+  verificationCode    String?
   vehicleNumber       String
   vehicleType         String        @default("CAR_4W")
   paymentMode         String        @default("UPI") // UPI | CASH | QR
   paymentStatus       String        @default("PENDING") // PENDING | DRIVER_CONFIRMED | OWNER_CONFIRMED | SETTLED
   driverConfirmedAt   DateTime?
   ownerConfirmedAt    DateTime?
+  paymentClaimedAt    DateTime?
+  paymentClaimedBy    String?
+  disputeStatus       String? // OPEN | UNDER_REVIEW | RESOLVED
+  disputeReason       String?
+  disputedAt          DateTime?
+  disputedBy          String?
   cancellationReason  String?
   cancelledByUserId   String?
   penaltyAmount       Float         @default(0.0)
@@ -138,11 +148,16 @@ model PenaltyLedger {
   bookingId       String?
   booking         Booking?  @relation(fields: [bookingId], references: [id])
   amount          Float
+  principalAmount Float     @default(0.0)
+  fineAmount      Float     @default(0.0)
+  paidAmount      Float     @default(0.0)
+  remainingAmount Float     @default(0.0)
   reason          String
-  status          String    @default("OUTSTANDING") // OUTSTANDING | PENDING_CONFIRMATION | PAID
+  status          String    @default("OUTSTANDING") // OUTSTANDING | PENDING_CONFIRMATION | PAID | ESCALATED
   createdAt       DateTime  @default(now())
   paidAt          DateTime?
   paymentRef      String?
+  paymentClaimedAt DateTime?
 }
 
 model PaymentConfirmation {

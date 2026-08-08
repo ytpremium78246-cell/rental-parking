@@ -181,7 +181,7 @@ export default function Home() {
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle className="w-4 h-4 text-[#0066cc] flex-shrink-0 mt-0.5" />
-                <span><strong>2-Min Grace Period for Owners:</strong> Owners can cancel free within 2 minutes of acceptance.</span>
+                <span><strong>3-Min Grace Period for Owners:</strong> Owners can cancel free within 3 minutes of acceptance.</span>
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle className="w-4 h-4 text-[#0066cc] flex-shrink-0 mt-0.5" />

@@ -1,5 +1,5 @@
-export const DRIVER_FREE_CANCELLATION_MINS = 2;
-export const OWNER_GRACE_PERIOD_MINS = 2;
+export const DRIVER_FREE_CANCELLATION_MINS = 5;
+export const OWNER_GRACE_PERIOD_MINS = 3;
 export const PENALTY_AMOUNT_INR = 10.0;
 export const LATE_CANCEL_TRUST_PENALTY = -2;
 export const NO_SHOW_TRUST_PENALTY = -5;

@@ -32,7 +32,20 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (action === "CONFIRM") {
       const updated = await prisma.penaltyLedger.update({
         where: { id: penaltyId },
-        data: { status: "PAID" },
+        data: { 
+          status: "PAID",
+          paidAt: new Date(),
+          paidAmount: penalty.amount, // Set paidAmount
+          remainingAmount: 0.0,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "OWNER_CONFIRMED_PENALTY",
+          details: `Penalty ${penalty.id} marked as PAID. Amount: ₹${penalty.amount}`,
+        },
       });
 
       await prisma.notification.create({
@@ -62,14 +75,56 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         });
       }
 
-      await prisma.notification.create({
-        data: {
-          userId: penalty.userId,
-          title: "Penalty Payment Disputed ❌",
-          message: `${user.name} reported that they did not receive your penalty payment. Your account is restricted again.`,
-          type: "PENALTY_ALERT",
-        },
-      });
+      // 3-strike warning logic for false penalty payments
+      const lyingUser = penalty.user;
+      const newWarningsCount = (lyingUser.falsePaymentWarnings || 0) + 1;
+      
+      try {
+        await prisma.user.update({
+          where: { id: lyingUser.id },
+          data: {
+            trustScore: { decrement: 3 },
+            falsePaymentWarnings: newWarningsCount,
+          }
+        });
+      } catch (err) {
+        await prisma.user.update({
+          where: { id: lyingUser.id },
+          data: { trustScore: { decrement: 3 } }
+        });
+      }
+
+      if (newWarningsCount >= 3) {
+        const doublePenaltyAmount = 2 * penalty.amount;
+        await prisma.penaltyLedger.create({
+          data: {
+            userId: lyingUser.id,
+            aggrievedUserId: user.id,
+            bookingId: penalty.bookingId,
+            amount: doublePenaltyAmount,
+            reason: `Falsely claimed payment for penalty. 3rd Strike: Assessed 2x penalty (₹${doublePenaltyAmount.toFixed(2)}).`,
+            status: "OUTSTANDING",
+          }
+        });
+
+        await prisma.notification.create({
+          data: {
+            userId: lyingUser.id,
+            title: "Penalty Payment Disputed / 2x Penalty Assessed ⚠️",
+            message: `${user.name} reported they did not receive your penalty payment (Strike ${newWarningsCount}). A 2x penalty of ₹${doublePenaltyAmount.toFixed(2)} was added to your ledger, and trust score reduced by 3.`,
+            type: "PENALTY_ALERT",
+          },
+        });
+      } else {
+        await prisma.notification.create({
+          data: {
+            userId: lyingUser.id,
+            title: "Penalty Payment Disputed Warning ⚠️",
+            message: `${user.name} reported they did not receive your penalty payment. This is warning ${newWarningsCount} of 3. Your trust score was reduced by 3 points.`,
+            type: "SYSTEM",
+          },
+        });
+      }
 
       return NextResponse.json({ success: true, penalty: updated });
     }

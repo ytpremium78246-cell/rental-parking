@@ -29,6 +29,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       data: {
         ...body,
         ratePerHour: body.ratePerHour ? parseFloat(body.ratePerHour) : existingListing.ratePerHour,
+        totalSlots: body.totalSlots ? parseInt(body.totalSlots) : existingListing.totalSlots,
+        availableSlots: body.totalSlots ? parseInt(body.totalSlots) : existingListing.availableSlots,
         isAvailable: body.isAvailable !== undefined ? Boolean(body.isAvailable) : existingListing.isAvailable,
       },
     });

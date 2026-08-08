@@ -87,16 +87,69 @@ export default function OwnerDashboard() {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
 
+  // Edit Listing Modal
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [activeEditListing, setActiveEditListing] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState<any>({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState("");
+
   // Cancel Modal
   const [activeCancelBooking, setActiveCancelBooking] = useState<any>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState<{message: string, isPenalty: boolean} | null>(null);
 
+  // Verification Modal
+  const [activeVerifyBooking, setActiveVerifyBooking] = useState<any>(null);
+  const [verificationCodeInput, setVerificationCodeInput] = useState("");
+
   // Penalty Alert Modal
   const [showPenaltyAlert, setShowPenaltyAlert] = useState(false);
 
+  // Reject Payment Modal
+  const [activeRejectBooking, setActiveRejectBooking] = useState<any>(null);
+  const [disputeReason, setDisputeReason] = useState("");
+
+  const [penaltyPreview, setPenaltyPreview] = useState<{ amount: number; applicable: boolean } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeCancelBooking) {
+      setPreviewLoading(true);
+      fetch(`/api/bookings/${activeCancelBooking.id}/penalty-preview?actor=OWNER`)
+        .then((res) => res.json())
+        .then((data) => {
+          setPenaltyPreview({ amount: data.penaltyAmount || 0, applicable: !!data.isPenaltyApplicable });
+          setPreviewLoading(false);
+        })
+        .catch(() => setPreviewLoading(false));
+    } else {
+      setPenaltyPreview(null);
+    }
+  }, [activeCancelBooking]);
+
   const router = useRouter();
+
+  const fetchDataSilently = async () => {
+    try {
+      const meRes = await fetch("/api/auth/me");
+      const meData = await meRes.json();
+      if (!meData.user || meData.user.role !== "OWNER") return;
+
+      setUser(meData.user);
+
+      const listingsRes = await fetch("/api/listings");
+      const listingsData = await listingsRes.json();
+      setListings((listingsData.listings || []).filter((l: any) => l.ownerId === meData.user?.id));
+
+      const bookingsRes = await fetch("/api/bookings");
+      const bookingsData = await bookingsRes.json();
+      setBookings(bookingsData.bookings || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -140,6 +193,8 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchDataSilently, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleFetchLocation = () => {
@@ -207,6 +262,55 @@ export default function OwnerDashboard() {
     }
   };
 
+  const handleOpenEdit = (listing: any) => {
+    setActiveEditListing(listing);
+    setEditFormData({
+      title: listing.title,
+      address: listing.address,
+      city: listing.city,
+      state: listing.state,
+      pincode: listing.pincode,
+      ratePerHour: listing.ratePerHour.toString(),
+      slotType: listing.slotType,
+      totalSlots: listing.totalSlots.toString(),
+      isCovered: listing.isCovered,
+      hasCctv: listing.hasCctv,
+      hasSecurityGuard: listing.hasSecurityGuard,
+      upiId: listing.upiId,
+    });
+    setEditError("");
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateListing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEditListing) return;
+    
+    setEditLoading(true);
+    setEditError("");
+
+    try {
+      const res = await fetch(`/api/listings/${activeEditListing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editFormData),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update parking listing");
+      }
+
+      setIsEditOpen(false);
+      setActiveEditListing(null);
+      fetchData();
+    } catch (err: any) {
+      setEditError(err.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleDeleteListing = async (listingId: string) => {
     if (!confirm("Are you sure you want to completely remove this parking listing? This action cannot be undone.")) {
       return;
@@ -226,18 +330,39 @@ export default function OwnerDashboard() {
     }
   };
 
-  const handleBookingAction = async (bookingId: string, action: string) => {
+  const handleBookingAction = async (bookingId: string, action: string, extraData?: any) => {
     setActionLoading(true);
     try {
       const res = await fetch(`/api/bookings/${bookingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...extraData }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Action failed");
 
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleVerifyCodeSubmit = async () => {
+    if (!activeVerifyBooking || !verificationCodeInput) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${activeVerifyBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "VERIFY_CODE", code: verificationCodeInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Verification failed");
+      setActiveVerifyBooking(null);
+      setVerificationCodeInput("");
       fetchData();
     } catch (err: any) {
       alert(err.message);
@@ -282,12 +407,12 @@ export default function OwnerDashboard() {
 
       if (data.isPenaltyApplicable) {
         setCancelSuccess({
-          message: "Booking cancelled. ₹10 penalty assessed for cancellation after 2-minute grace period.",
+          message: "Booking cancelled. ₹10 penalty assessed for cancellation after 3-minute grace period.",
           isPenalty: true
         });
       } else {
         setCancelSuccess({
-          message: "Booking cancelled for free within 2-minute grace period.",
+          message: "Booking cancelled for free within 3-minute grace period.",
           isPenalty: false
         });
       }
@@ -472,6 +597,15 @@ export default function OwnerDashboard() {
                       <span>Mode: <strong className="text-[#1d1d1f]">{booking.paymentMode}</strong></span>
                       <span>Status: <strong className="text-[#1d1d1f]">{booking.paymentStatus}</strong></span>
                     </div>
+
+                    {isAccepted && booking.timerStartedAt && !booking.timerEndedAt && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-[#0066cc] font-bold">Physical Parking Session Active ⏱️</p>
+                          <p className="text-[10px] text-[#0071e3]">Started at: {new Date(booking.timerStartedAt).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -502,13 +636,42 @@ export default function OwnerDashboard() {
                     )}
 
                     {isDriverConfirmed && !isCompleted && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleBookingAction(booking.id, "OWNER_CONFIRM_PAYMENT")}
+                          disabled={actionLoading}
+                          className="px-4 py-2 bg-[#0066cc] hover:bg-[#0071e3] text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center space-x-1"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Confirm Payment Received (₹{booking.amount})</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveRejectBooking(booking)}
+                          disabled={actionLoading}
+                          className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold rounded-xl transition flex items-center space-x-1"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          <span>Payment Not Received (False Request)</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {isAccepted && !booking.timerStartedAt && (
                       <button
-                        onClick={() => handleBookingAction(booking.id, "OWNER_CONFIRM_PAYMENT")}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-[#0066cc] hover:bg-[#0071e3] text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center space-x-1"
+                        onClick={() => setActiveVerifyBooking(booking)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-xl shadow-sm transition"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Confirm Payment Received (₹{booking.amount})</span>
+                        Start Timer (Enter Code)
+                      </button>
+                    )}
+
+                    {isAccepted && booking.timerStartedAt && !booking.timerEndedAt && (
+                      <button
+                        onClick={() => handleBookingAction(booking.id, "STOP_PARKING_TIMER")}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-sm transition"
+                      >
+                        End/Confirm Session
                       </button>
                     )}
 
@@ -565,12 +728,18 @@ export default function OwnerDashboard() {
                   <span>UPI: <strong className="text-[#0066cc] font-mono">{item.upiId}</strong></span>
                 </div>
 
-                <div className="pt-2 border-t border-[#f0f0f0]">
+                <div className="flex gap-2 pt-2 border-t border-[#f0f0f0]">
+                  <button
+                    onClick={() => handleOpenEdit(item)}
+                    className="flex-1 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1"
+                  >
+                    <span>✏️ Edit</span>
+                  </button>
                   <button
                     onClick={() => handleDeleteListing(item.id)}
-                    className="w-full py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1"
+                    className="flex-1 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1"
                   >
-                    <span>🗑️ Remove Listing</span>
+                    <span>🗑️ Remove</span>
                   </button>
                 </div>
               </div>
@@ -775,6 +944,163 @@ export default function OwnerDashboard() {
         </ModalPortal>
       )}
 
+      {/* Edit Listing Modal */}
+      {isEditOpen && activeEditListing && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#e0e0e0] space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-3">
+                <h2 className="text-lg font-bold text-[#1d1d1f]">Edit Parking Space</h2>
+                <button onClick={() => setIsEditOpen(false)} className="text-[#7a7a7a] hover:text-[#1d1d1f]">
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateListing} className="space-y-4">
+                {editError && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl">{editError}</div>}
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Listing Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Full Street Address</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.address}
+                    onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">City</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.city}
+                      onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">State</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.state}
+                      onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Pincode</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.pincode}
+                      onChange={(e) => setEditFormData({ ...editFormData, pincode: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Rate Per Hour (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min={10}
+                      value={editFormData.ratePerHour}
+                      onChange={(e) => setEditFormData({ ...editFormData, ratePerHour: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Capacity (Cars)</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={100}
+                      value={editFormData.totalSlots}
+                      onChange={(e) => setEditFormData({ ...editFormData, totalSlots: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Vehicle Type</label>
+                    <select
+                      value={editFormData.slotType}
+                      onChange={(e) => setEditFormData({ ...editFormData, slotType: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    >
+                      <option value="CAR_4W">🚗 Car (4W)</option>
+                      <option value="BIKE_2W">🏍️ Bike (2W)</option>
+                      <option value="EV_4W">⚡ EV Spot</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
+                    Owner Direct UPI ID
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.upiId}
+                    onChange={(e) => setEditFormData({ ...editFormData, upiId: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm font-mono focus:outline-none focus:border-[#0066cc]"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-2">
+                  <label className="flex items-center space-x-2 text-xs font-medium text-[#1d1d1f]">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.isCovered}
+                      onChange={(e) => setEditFormData({ ...editFormData, isCovered: e.target.checked })}
+                      className="rounded text-[#0066cc]"
+                    />
+                    <span>Covered Shed</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-xs font-medium text-[#1d1d1f]">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.hasCctv}
+                      onChange={(e) => setEditFormData({ ...editFormData, hasCctv: e.target.checked })}
+                      className="rounded text-[#0066cc]"
+                    />
+                    <span>CCTV Monitored</span>
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="w-full py-3 bg-[#0066cc] hover:bg-[#0071e3] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition shadow-sm"
+                >
+                  {editLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
       {/* Cancel Modal */}
       {activeCancelBooking && (
         <ModalPortal>
@@ -788,14 +1114,26 @@ export default function OwnerDashboard() {
               </div>
 
               <div className="space-y-4">
-                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs space-y-1">
-                  <p className="font-bold flex items-center space-x-1">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    <span>2-Minute Grace Rule for Owners:</span>
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs space-y-2">
+                  <p className="font-bold flex items-center space-x-1 text-sm">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <span>Penalty Preview</span>
                   </p>
-                  <p>Owner cancellations within 2 minutes of acceptance are <strong>Free</strong>.</p>
-                  <p>Owner cancellations after 2 minutes assess a <strong>₹10 penalty</strong> to your ledger.</p>
-                  <GraceTimer startTime={activeCancelBooking.updatedAt || activeCancelBooking.createdAt} graceMinutes={2} />
+                  
+                  {previewLoading ? (
+                    <p className="animate-pulse">Calculating your exact penalty...</p>
+                  ) : penaltyPreview ? (
+                    <>
+                      {penaltyPreview.applicable ? (
+                        <div>
+                          <p>If you proceed with cancellation right now, you will be assessed a penalty of:</p>
+                          <div className="text-xl font-extrabold text-red-600 mt-1">₹{penaltyPreview.amount}</div>
+                        </div>
+                      ) : (
+                        <p className="text-green-700 font-bold">Free Cancellation (No Penalty Applies)</p>
+                      )}
+                    </>
+                  ) : null}
                 </div>
 
                 <div>
@@ -881,6 +1219,116 @@ export default function OwnerDashboard() {
           </div>
         </ModalPortal>
       )}
+      {/* Reject Payment Modal */}
+      {activeRejectBooking && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#e0e0e0] space-y-4">
+              <div className="flex items-center space-x-2 text-red-600 border-b border-[#f0f0f0] pb-3">
+                <AlertTriangle className="w-6 h-6" />
+                <h2 className="text-lg font-bold text-[#1d1d1f]">Report False Payment</h2>
+              </div>
+              
+              <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                <p className="text-sm font-semibold text-red-800">Are you sure?</p>
+                <p className="text-xs text-red-700 mt-1">
+                  This will add a severe penalty to the driver's ledger and deduct 3 Trust Score points for a false payment claim.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Reason for Dispute</label>
+                <textarea
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  placeholder="e.g. Checked my bank app, no payment received for this amount."
+                  className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-red-600 min-h-[80px]"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setActiveRejectBooking(null)}
+                  disabled={actionLoading}
+                  className="flex-1 py-2.5 bg-white border border-[#e0e0e0] text-[#1d1d1f] font-bold text-sm rounded-xl transition shadow-sm hover:bg-gray-50"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (!disputeReason.trim()) {
+                      alert("Please provide a reason for the dispute.");
+                      return;
+                    }
+                    handleBookingAction(activeRejectBooking.id, "OWNER_REJECT_PAYMENT", { reason: disputeReason });
+                    setActiveRejectBooking(null);
+                    setDisputeReason("");
+                  }}
+                  disabled={actionLoading}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-xl transition shadow-sm"
+                >
+                  {actionLoading ? "Processing..." : "Yes, Report It"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+      {/* Verification Modal */}
+      {activeVerifyBooking && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#e0e0e0] space-y-4">
+              <div className="flex items-center space-x-2 text-green-600 border-b border-[#f0f0f0] pb-3">
+                <CheckCircle2 className="w-6 h-6" />
+                <h2 className="text-lg font-bold text-[#1d1d1f]">Verify Driver Code</h2>
+              </div>
+              
+              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                <p className="text-sm font-semibold text-green-800">Start Physical Parking Session</p>
+                <p className="text-xs text-green-700 mt-1">
+                  Ask the driver for their 4-digit code. Entering it here will start their live parking timer.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">4-Digit Verification Code</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={verificationCodeInput}
+                  onChange={(e) => setVerificationCodeInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 1234"
+                  className="w-full px-3 py-3 border border-[#e0e0e0] rounded-xl text-center text-2xl font-bold tracking-widest focus:outline-none focus:border-green-600"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setActiveVerifyBooking(null);
+                    setVerificationCodeInput("");
+                  }}
+                  disabled={actionLoading}
+                  className="flex-1 py-2.5 bg-white border border-[#e0e0e0] text-[#1d1d1f] font-bold text-sm rounded-xl transition shadow-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleVerifyCodeSubmit}
+                  disabled={actionLoading || verificationCodeInput.length !== 4}
+                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl transition shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {actionLoading ? "Verifying..." : "Verify & Start Timer"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
     </div>
   );
 }

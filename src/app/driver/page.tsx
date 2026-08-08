@@ -5,44 +5,7 @@ import { useRouter } from "next/navigation";
 import { Car, Clock, ShieldCheck, CheckCircle2, AlertTriangle, IndianRupee, QrCode, ArrowRight } from "lucide-react";
 import ModalPortal from "@/components/ModalPortal";
 
-const GraceTimer = ({ startTime, graceMinutes }: { startTime: string; graceMinutes: number }) => {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  useEffect(() => {
-    const calculateTimeLeft = () => {
-      const start = new Date(startTime).getTime();
-      const end = start + graceMinutes * 60 * 1000;
-      const now = new Date().getTime();
-      const diff = Math.floor((end - now) / 1000);
-      return diff > 0 ? diff : 0;
-    };
-
-    setTimeLeft(calculateTimeLeft());
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [startTime, graceMinutes]);
-
-  if (timeLeft === null) return null;
-
-  if (timeLeft === 0) {
-    return (
-      <div className="mt-2 p-2 bg-red-100 text-red-700 font-bold rounded-lg text-center border border-red-200">
-        Grace Period Expired (Penalty Applies)
-      </div>
-    );
-  }
-
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
-  return (
-    <div className="mt-2 p-2 bg-blue-100 text-blue-800 font-bold rounded-lg text-center border border-blue-200">
-      Free Cancellation Time Left: {mins}:{secs.toString().padStart(2, "0")}
-    </div>
-  );
-};
 
 export default function DriverDashboard() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -51,15 +14,61 @@ export default function DriverDashboard() {
 
   // Direct Payment Modal
   const [activePaymentBooking, setActivePaymentBooking] = useState<any>(null);
+  const [showPaymentConsent, setShowPaymentConsent] = useState(false);
+  const [consentTimer, setConsentTimer] = useState(3);
   const [upiRef, setUpiRef] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showPaymentConsent && consentTimer > 0) {
+      timer = setTimeout(() => {
+        setConsentTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [showPaymentConsent, consentTimer]);
 
   // Cancel Modal
   const [activeCancelBooking, setActiveCancelBooking] = useState<any>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSuccess, setCancelSuccess] = useState<{message: string, isPenalty: boolean} | null>(null);
+  
+  const [penaltyPreview, setPenaltyPreview] = useState<{ amount: number; applicable: boolean } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeCancelBooking) {
+      setPreviewLoading(true);
+      fetch(`/api/bookings/${activeCancelBooking.id}/penalty-preview?actor=DRIVER`)
+        .then((res) => res.json())
+        .then((data) => {
+          setPenaltyPreview({ amount: data.penaltyAmount || 0, applicable: !!data.isPenaltyApplicable });
+          setPreviewLoading(false);
+        })
+        .catch(() => setPreviewLoading(false));
+    } else {
+      setPenaltyPreview(null);
+    }
+  }, [activeCancelBooking]);
 
   const router = useRouter();
+
+  const fetchDataSilently = async () => {
+    try {
+      const meRes = await fetch("/api/auth/me");
+      const meData = await meRes.json();
+      if (!meData.user || meData.user.role !== "DRIVER") return;
+
+      setUser(meData.user);
+
+      const res = await fetch("/api/bookings");
+      const data = await res.json();
+      setBookings(data.bookings || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -91,6 +100,8 @@ export default function DriverDashboard() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchDataSilently, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleDriverConfirmPayment = async () => {
@@ -109,6 +120,7 @@ export default function DriverDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Payment confirmation failed");
 
+      setShowPaymentConsent(false);
       setActivePaymentBooking(null);
       fetchData();
     } catch (err: any) {
@@ -136,7 +148,7 @@ export default function DriverDashboard() {
 
       if (data.isPenaltyApplicable) {
         setCancelSuccess({
-          message: "Booking cancelled. ₹10 penalty assessed for cancellation after 2-minute grace period.",
+          message: "Booking cancelled. ₹10 penalty assessed for cancellation after 5-minute grace period.",
           isPenalty: true
         });
       } else {
@@ -165,6 +177,24 @@ export default function DriverDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Penalty action failed");
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStopParking = async (bookingId: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "STOP_PARKING_TIMER" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to stop parking");
       fetchData();
     } catch (err: any) {
       alert(err.message);
@@ -289,10 +319,41 @@ export default function DriverDashboard() {
                       <span>Amount: <strong className="text-[#1d1d1f]">₹{booking.amount}</strong></span>
                       <span>Payment: <strong className="text-[#1d1d1f]">{booking.paymentMode}</strong></span>
                     </div>
+
+                    {isAccepted && !booking.timerStartedAt && (
+                      <div className="mt-2 p-3 bg-[#f8f9fa] border border-[#e0e0e0] rounded-xl flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-[#7a7a7a] font-semibold">Verification Code for Owner:</p>
+                          <p className="text-lg font-bold tracking-widest text-[#1d1d1f]">{booking.verificationCode}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-[#7a7a7a]">Provide this code to the owner</p>
+                          <p className="text-[10px] text-[#7a7a7a]">to start the physical parking timer</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {isAccepted && booking.timerStartedAt && !booking.timerEndedAt && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-[#0066cc] font-bold">Physical Parking Session Active ⏱️</p>
+                          <p className="text-[10px] text-[#0071e3]">Started at: {new Date(booking.timerStartedAt).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2 md:pt-0">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2 md:pt-0 items-end sm:items-center">
+                    {isAccepted && booking.timerStartedAt && !booking.timerEndedAt && (
+                      <button
+                        onClick={() => handleStopParking(booking.id)}
+                        disabled={actionLoading}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-sm transition"
+                      >
+                        Stop Parking / Checkout
+                      </button>
+                    )}
                     {isAccepted && !isDriverConfirmed && (
                       <button
                         onClick={() => setActivePaymentBooking(booking)}
@@ -338,62 +399,103 @@ export default function DriverDashboard() {
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <div className="bg-[#f8f9fa] p-4 rounded-xl border border-[#e0e0e0] space-y-2">
-                  <div className="flex justify-between text-xs text-[#7a7a7a]">
-                    <span>Owner Name:</span>
-                    <strong className="text-[#1d1d1f]">{activePaymentBooking.owner?.name}</strong>
+              {showPaymentConsent ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+                    <div className="flex items-center space-x-2 text-amber-800">
+                      <AlertTriangle className="w-5 h-5" />
+                      <h3 className="font-bold text-lg">Are you sure?</h3>
+                    </div>
+                    <p className="text-sm text-amber-900">
+                      Are you absolutely sure you have completed the payment of <strong>₹{activePaymentBooking.amount}</strong> to the owner?
+                    </p>
+                    <p className="text-xs text-amber-800 font-semibold mt-2">
+                      Submitting a false payment request will decrease your trust score and result in heavy financial penalties.
+                      <br />
+                      <strong>Warnings Left: {Math.max(0, 3 - (user?.falsePaymentWarnings || 0))} out of 3</strong>
+                    </p>
                   </div>
-                  <div className="flex justify-between text-xs text-[#7a7a7a]">
-                    <span>Owner Phone:</span>
-                    <strong className="text-[#1d1d1f]">{activePaymentBooking.owner?.phone}</strong>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-[#0066cc]">
-                    <span>Owner UPI ID:</span>
-                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-[#e0e0e0]">
-                      {activePaymentBooking.owner?.upiId || "owner@upi"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-base font-extrabold text-[#1d1d1f] pt-2 border-t border-[#e0e0e0]">
-                    <span>Total Amount Due:</span>
-                    <span>₹{activePaymentBooking.amount}</span>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowPaymentConsent(false);
+                        setConsentTimer(3);
+                      }}
+                      disabled={actionLoading}
+                      className="flex-1 py-3 bg-white border border-[#e0e0e0] text-[#1d1d1f] font-bold text-sm rounded-xl transition shadow-sm hover:bg-gray-50"
+                    >
+                      No, Go Back
+                    </button>
+                    <button
+                      onClick={handleDriverConfirmPayment}
+                      disabled={actionLoading || consentTimer > 0}
+                      className={`flex-1 py-3 text-white font-bold text-sm rounded-xl transition shadow-sm ${consentTimer > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#0066cc] hover:bg-[#0071e3]'}`}
+                    >
+                      {actionLoading ? "Confirming..." : consentTimer > 0 ? `Read Warning (${consentTimer}s)` : "Yes, I Have Paid"}
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-[#f8f9fa] p-4 rounded-xl border border-[#e0e0e0] space-y-2">
+                    <div className="flex justify-between text-xs text-[#7a7a7a]">
+                      <span>Owner Name:</span>
+                      <strong className="text-[#1d1d1f]">{activePaymentBooking.owner?.name}</strong>
+                    </div>
+                    <div className="flex justify-between text-xs text-[#7a7a7a]">
+                      <span>Owner Phone:</span>
+                      <strong className="text-[#1d1d1f]">{activePaymentBooking.owner?.phone}</strong>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-[#0066cc]">
+                      <span>Owner UPI ID:</span>
+                      <span className="font-mono bg-white px-2 py-0.5 rounded border border-[#e0e0e0]">
+                        {activePaymentBooking.owner?.upiId || "owner@upi"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-base font-extrabold text-[#1d1d1f] pt-2 border-t border-[#e0e0e0]">
+                      <span>Total Amount Due:</span>
+                      <span>₹{activePaymentBooking.amount}</span>
+                    </div>
+                  </div>
 
-                {/* Real UPI QR Code */}
-                <div className="text-center p-4 bg-white border border-[#e0e0e0] rounded-xl space-y-3 flex flex-col items-center">
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`upi://pay?pa=${activePaymentBooking.owner?.upiId || "owner@upi"}&pn=${activePaymentBooking.owner?.name || "Owner"}&am=${activePaymentBooking.amount}&cu=INR`)}`} 
-                    alt="UPI QR Code" 
-                    className="w-32 h-32 mx-auto rounded-lg shadow-sm border border-[#e0e0e0] p-1"
-                  />
-                  <p className="text-xs text-[#7a7a7a]">
-                    Scan in GPay / PhonePe / Paytm to pay <strong>₹{activePaymentBooking.amount}</strong> directly to{" "}
-                    <strong>{activePaymentBooking.owner?.upiId || "owner@upi"}</strong>
-                  </p>
+                  {/* Real UPI QR Code */}
+                  <div className="text-center p-4 bg-white border border-[#e0e0e0] rounded-xl space-y-3 flex flex-col items-center">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`upi://pay?pa=${activePaymentBooking.owner?.upiId || "owner@upi"}&pn=${activePaymentBooking.owner?.name || "Owner"}&am=${activePaymentBooking.amount}&cu=INR`)}`} 
+                      alt="UPI QR Code" 
+                      className="w-32 h-32 mx-auto rounded-lg shadow-sm border border-[#e0e0e0] p-1"
+                    />
+                    <p className="text-xs text-[#7a7a7a]">
+                      Scan in GPay / PhonePe / Paytm to pay <strong>₹{activePaymentBooking.amount}</strong> directly to{" "}
+                      <strong>{activePaymentBooking.owner?.upiId || "owner@upi"}</strong>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
+                      UPI Transaction Ref / UTR (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 402911223344"
+                      value={upiRef}
+                      onChange={(e) => setUpiRef(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShowPaymentConsent(true);
+                      setConsentTimer(3);
+                    }}
+                    disabled={actionLoading}
+                    className="w-full py-3 bg-[#0066cc] hover:bg-[#0071e3] text-white font-bold text-sm rounded-xl transition shadow-sm"
+                  >
+                    I Have Sent Payment to Owner
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
-                    UPI Transaction Ref / UTR (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 402911223344"
-                    value={upiRef}
-                    onChange={(e) => setUpiRef(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
-                  />
-                </div>
-
-                <button
-                  onClick={handleDriverConfirmPayment}
-                  disabled={actionLoading}
-                  className="w-full py-3 bg-[#0066cc] hover:bg-[#0071e3] text-white font-bold text-sm rounded-xl transition shadow-sm"
-                >
-                  {actionLoading ? "Confirming..." : "I Have Sent Payment to Owner"}
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </ModalPortal>
@@ -423,13 +525,24 @@ export default function DriverDashboard() {
                     </>
                   ) : (
                     <>
-                      <p className="font-bold flex items-center space-x-1">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span>2-Minute Grace Period Rule:</span>
+                      <p className="font-bold flex items-center space-x-1 text-sm">
+                        <AlertTriangle className="w-5 h-5 text-amber-600" />
+                        <span>Penalty Preview</span>
                       </p>
-                      <p>Cancellations within 2 minutes of acceptance are <strong>100% Free</strong>.</p>
-                      <p>Cancellations after 2 minutes incur a <strong>₹10 penalty</strong> assessed to your account ledger.</p>
-                      <GraceTimer startTime={activeCancelBooking.updatedAt || activeCancelBooking.createdAt} graceMinutes={2} />
+                      {previewLoading ? (
+                        <p className="animate-pulse">Calculating your exact penalty...</p>
+                      ) : penaltyPreview ? (
+                        <>
+                          {penaltyPreview.applicable ? (
+                            <div>
+                              <p>If you proceed with cancellation right now, you will be assessed a penalty of:</p>
+                              <div className="text-xl font-extrabold text-red-600 mt-1">₹{penaltyPreview.amount}</div>
+                            </div>
+                          ) : (
+                            <p className="text-green-700 font-bold">Free Cancellation (No Penalty Applies)</p>
+                          )}
+                        </>
+                      ) : null}
                     </>
                   )}
                 </div>

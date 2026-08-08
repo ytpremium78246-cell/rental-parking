@@ -16,7 +16,7 @@ export default function SearchPage() {
   // Booking Modal State
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [hours, setHours] = useState(2);
-  const [vehicleNumber, setVehicleNumber] = useState("DL 01 AB 1234");
+  const [vehicleNumber, setVehicleNumber] = useState("");
   const [paymentMode, setPaymentMode] = useState("UPI");
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState<any>(null);
@@ -226,13 +226,20 @@ export default function SearchPage() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedListing(item)}
-                className="w-full py-2.5 bg-[#0066cc] hover:bg-[#0071e3] text-white font-semibold rounded-xl text-xs transition flex items-center justify-center space-x-2"
-              >
-                <span>Book Parking Spot</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {item.isFull ? (
+                <div className="w-full py-2.5 bg-red-50 text-red-600 font-semibold rounded-xl text-xs flex items-center justify-center space-x-2 border border-red-100">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Parking is Full</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSelectedListing(item)}
+                  className="w-full py-2.5 bg-[#0066cc] hover:bg-[#0071e3] text-white font-semibold rounded-xl text-xs transition flex items-center justify-center space-x-2"
+                >
+                  <span>Book Parking Spot</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -254,6 +261,7 @@ export default function SearchPage() {
                   <p className="text-xs text-[#7a7a7a]">{selectedListing.address}, {selectedListing.city}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedListing(null)}
                   className="text-[#7a7a7a] hover:text-[#1d1d1f] text-sm font-bold"
                 >
@@ -292,7 +300,7 @@ export default function SearchPage() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Duration (Hours)</label>
+                      <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Expected Duration</label>
                       <select
                         value={hours}
                         onChange={(e) => setHours(parseInt(e.target.value))}
@@ -339,18 +347,10 @@ export default function SearchPage() {
 
                   <div className="bg-[#f8f9fa] p-4 rounded-xl border border-[#e0e0e0] flex items-center justify-between">
                     <div>
-                      <span className="text-xs text-[#7a7a7a]">Total Estimated Fee</span>
+                      <span className="text-xs text-[#7a7a7a]">Expected Total Fee</span>
                       <div className="text-xl font-extrabold text-[#1d1d1f]">₹{selectedListing.ratePerHour * hours}</div>
                     </div>
-                    <span className="text-[11px] text-[#7a7a7a]">Paid Direct to Owner</span>
-                  </div>
-
-                  <div className="text-[11px] text-[#7a7a7a] bg-blue-50 text-blue-900 p-3 rounded-xl border border-blue-100 space-y-1">
-                    <p className="font-bold flex items-center space-x-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Cancellation Rule:</span>
-                    </p>
-                    <p>Free cancellation within 5 mins of booking. ₹10 penalty thereafter.</p>
+                    <span className="text-[11px] text-[#7a7a7a]">Actual fee based on timer</span>
                   </div>
 
                   <button

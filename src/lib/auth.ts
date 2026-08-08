@@ -30,6 +30,23 @@ export async function getCurrentUserFull() {
 
   if (!user || !user.isActive) return null;
 
+  // Lazy escalation: If an owner ignores a penalty payment for > 48h, escalate it.
+  const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const stalePenalties = user.penaltiesOwedToMe.filter(p => p.paymentClaimedAt && p.paymentClaimedAt < fortyEightHoursAgo);
+  
+  if (stalePenalties.length > 0) {
+    try {
+      await prisma.penaltyLedger.updateMany({
+        where: { id: { in: stalePenalties.map(p => p.id) } },
+        data: { status: "ESCALATED" }
+      });
+      // Remove them from current memory so they don't show up in incoming
+      user.penaltiesOwedToMe = user.penaltiesOwedToMe.filter(p => !stalePenalties.includes(p));
+    } catch (e) {
+      console.error("Failed to escalate penalties:", e);
+    }
+  }
+
   const hasOutstandingPenalty = user.penalties.length > 0;
   const totalOutstandingAmount = user.penalties.reduce((sum, p) => sum + p.amount, 0);
 

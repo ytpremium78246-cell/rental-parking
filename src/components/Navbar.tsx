@@ -34,7 +34,11 @@ export default function Navbar() {
   return (
     <>
       {user?.hasOutstandingPenalty && user?.outstandingPenalties?.length > 0 && (
-        <PenaltyBlockBanner penalties={user.outstandingPenalties} onSettled={fetchUser} />
+        <PenaltyBlockBanner 
+          penalties={user.outstandingPenalties} 
+          falsePaymentWarnings={user.falsePaymentWarnings}
+          onSettled={fetchUser} 
+        />
       )}
 
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e0e0e0]">

@@ -20,9 +20,11 @@ export async function GET() {
         trustScore: user.trustScore,
         upiId: user.upiId,
         hasOutstandingPenalty: user.hasOutstandingPenalty,
+        isPenaltyBlocked: user.hasOutstandingPenalty,
         totalOutstandingAmount: user.totalOutstandingAmount,
         outstandingPenalties: user.outstandingPenalties,
         incomingPenalties: user.incomingPenalties,
+        falsePaymentWarnings: user.falsePaymentWarnings,
         profile: user.profile,
       },
     });

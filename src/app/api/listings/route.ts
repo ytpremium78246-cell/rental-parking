@@ -55,18 +55,30 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    const formattedListings = listings.map((item) => {
+    const formattedListings = await Promise.all(listings.map(async (item) => {
       const avgRating =
         item.reviews.length > 0
           ? item.reviews.reduce((acc, r) => acc + r.rating, 0) / item.reviews.length
           : 5.0;
 
+      const now = new Date();
+      const activeBookingsCount = await prisma.booking.count({
+        where: {
+          listingId: item.id,
+          status: "Accepted",
+          startTime: { lte: now },
+          endTime: { gte: now }
+        }
+      });
+
       return {
         ...item,
         avgRating: Math.round(avgRating * 10) / 10,
         totalReviews: item.reviews.length,
+        isFull: activeBookingsCount >= item.totalSlots,
+        activeBookingsCount,
       };
-    });
+    }));
 
     return NextResponse.json({ listings: formattedListings });
   } catch (error) {

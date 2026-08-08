@@ -1,0 +1,3 @@
+@echo off
+echo Starting Parking India Local Development Server...
+npm run dev

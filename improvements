@@ -1,0 +1,205 @@
+# FINAL CORRECTION — DO NOT REMOVE EXISTING BOOKING FUNCTIONS
+
+Do NOT create an alternative booking mode.
+
+Do NOT create a "future booking mode."
+
+Do NOT remove, hide, disable, or replace any existing booking options.
+
+The existing booking functionality must remain available **by default for every booking**, including future bookings.
+
+## REMOVE ONLY TIME/EXPIRY LOGIC
+
+Completely remove all artificial time-based expiration logic, including:
+
+* Booking expiry
+* No-show expiry
+* Arrival deadlines
+* Booking timeout
+* Payment timeout
+* Dispute timeout
+* Automatic cancellation caused by time
+* Automatic escalation caused by time
+* Any countdown/expiry mechanism that automatically changes booking state
+
+There must be **NO replacement expiry system**.
+
+A booking should remain available until the user performs the appropriate action.
+
+## KEEP ALL EXISTING FUNCTIONS BY DEFAULT
+
+Every booking must continue to have the existing options already provided by the application.
+
+Do not make these options conditional on whether the booking is today or tomorrow.
+
+### Driver dashboard must retain all existing options
+
+Including, wherever applicable:
+
+* View booking
+* Booking details
+* Scheduled date/time
+* Parking location
+* Owner details
+* Cancel booking
+* Payment
+* Payment status
+* Booking status
+* Existing booking actions
+* Existing notifications
+* Existing dispute/penalty functionality
+
+PLUS the new physical parking functionality:
+
+* I'm Here
+* View 4-digit code
+* Parking timer
+* Stop Parking / Checkout
+
+### Owner dashboard must retain all existing options
+
+Including, wherever applicable:
+
+* View booking
+* Booking details
+* Scheduled date/time
+* Driver details
+* Accept/reject booking
+* Cancel booking
+* Payment information
+* Existing booking actions
+* Existing notifications
+* Payment dispute
+* Incoming penalty payment confirmation
+
+PLUS:
+
+* Start Parking Timer
+* Enter driver's 4-digit code
+* Live parking timer
+* End/confirm parking session
+
+## FUTURE BOOKINGS
+
+If a driver books:
+
+> Tomorrow at 10:00 AM
+
+it must have the **same normal booking features** as any other booking.
+
+Do NOT remove:
+
+* Cancel
+* Payment
+* Booking details
+* Owner/driver information
+* Any existing action
+* Any existing status/function
+
+Future date/time is simply stored as the scheduled booking time.
+
+It must NOT cause automatic expiration.
+
+## PHYSICAL PARKING TIMER
+
+The new timer is separate from booking expiry.
+
+Keep:
+
+```text
+scheduled startTime
+scheduled endTime
+```
+
+for the booking's planned time.
+
+Add:
+
+```text
+timerStartedAt
+timerEndedAt
+```
+
+for the actual physical parking session.
+
+The actual parking charge should use:
+
+```text
+timerEndedAt - timerStartedAt
+```
+
+when the physical session ends.
+
+The scheduled booking time must NOT automatically start or end the physical timer.
+
+## 4-DIGIT CODE
+
+Keep the 4-digit verification system.
+
+Driver receives/shows the code.
+
+Owner enters the code.
+
+Successful verification starts:
+
+```text
+timerStartedAt = server time
+```
+
+The code is one-time-use.
+
+Do NOT add a time-based expiry to the code.
+
+## IMPORTANT DISTINCTION
+
+Do NOT confuse:
+
+**Booking scheduled time**
+
+with:
+
+**Parking session timer**
+
+and do NOT confuse either with:
+
+**Expiry/timeout logic**
+
+The final system must have:
+
+```text
+BOOKING
+    ↓
+Scheduled date/time
+    ↓
+Existing booking functions remain available
+    ↓
+Driver arrives
+    ↓
+4-digit verification
+    ↓
+Physical parking timer starts
+    ↓
+Driver leaves
+    ↓
+Physical timer stops
+    ↓
+Final parking amount calculated
+    ↓
+Existing payment workflow
+```
+
+## FINAL RULE
+
+**REMOVE TIME/EXPIRY LOGIC ONLY.**
+
+**DO NOT REMOVE EXISTING BOOKING FUNCTIONS.**
+
+**DO NOT CREATE AN ALTERNATIVE MODE.**
+
+**DO NOT REDUCE FEATURES FOR FUTURE BOOKINGS.**
+
+The existing booking features should be the **default experience for every booking**, while the new physical timer and 4-digit verification are added on top of the existing system.
+
+Before modifying code, inspect the existing driver and owner dashboards and preserve every existing action/button/function unless it is specifically an automatic expiry/timeout mechanism.
+
+Do not ask me to choose between alternatives. Implement exactly this behavior.
