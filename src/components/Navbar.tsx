@@ -63,14 +63,14 @@ export default function Navbar() {
             {user?.role === "DRIVER" && (
               <Link href="/driver" className="flex items-center space-x-1.5 hover:text-[#0066cc] transition">
                 <Car className="w-4 h-4 text-[#0066cc]" />
-                <span>Driver Dashboard</span>
+                <span>Car Owner Dashboard</span>
               </Link>
             )}
 
             {user?.role === "OWNER" && (
               <Link href="/owner" className="flex items-center space-x-1.5 hover:text-[#0066cc] transition">
                 <ParkingSquare className="w-4 h-4 text-[#0066cc]" />
-                <span>Owner Dashboard</span>
+                <span>Parking Owner Dashboard</span>
               </Link>
             )}
 
@@ -136,14 +136,14 @@ export default function Navbar() {
             {user?.role === "DRIVER" && (
               <Link href="/driver" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center space-x-2 text-[#1d1d1f] p-2 hover:bg-[#f0f0f0] rounded-xl">
                 <Car className="w-5 h-5 text-[#0066cc]" />
-                <span className="font-semibold">Driver Dashboard</span>
+                <span className="font-semibold">Car Owner Dashboard</span>
               </Link>
             )}
 
             {user?.role === "OWNER" && (
               <Link href="/owner" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center space-x-2 text-[#1d1d1f] p-2 hover:bg-[#f0f0f0] rounded-xl">
                 <ParkingSquare className="w-5 h-5 text-[#0066cc]" />
-                <span className="font-semibold">Owner Dashboard</span>
+                <span className="font-semibold">Parking Owner Dashboard</span>
               </Link>
             )}
 

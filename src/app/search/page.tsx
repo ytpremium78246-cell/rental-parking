@@ -218,7 +218,7 @@ export default function SearchPage() {
                 </div>
 
                 <div className="pt-2 border-t border-[#f0f0f0] flex items-center justify-between text-xs text-[#7a7a7a]">
-                  <span>Owner: <strong className="text-[#1d1d1f]">{item.owner.name}</strong></span>
+                  <span>Parking Owner: <strong className="text-[#1d1d1f]">{item.owner.name}</strong></span>
                   <span className="flex items-center space-x-1 text-[#0066cc] font-semibold">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Trust: {item.owner.trustScore}</span>
@@ -279,14 +279,14 @@ export default function SearchPage() {
                     Booking Code: <strong className="font-mono text-[#0066cc]">{bookingSuccess.bookingCode}</strong>
                   </p>
                   <p className="text-xs text-[#7a7a7a]">
-                    Owner <strong>{selectedListing.owner.name}</strong> will review and accept your request. Direct UPI payment is made after your parking session.
+                    Parking Owner <strong>{selectedListing.owner.name}</strong> will review and accept your request. Direct UPI payment is made after your parking session.
                   </p>
                   <div className="pt-2">
                     <a
                       href="/driver"
                       className="inline-block px-5 py-2.5 bg-[#0066cc] text-white text-xs font-semibold rounded-xl"
                     >
-                      View in Driver Dashboard
+                      View in Car Owner Dashboard
                     </a>
                   </div>
                 </div>
@@ -328,7 +328,7 @@ export default function SearchPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Payment Method (Direct to Owner)</label>
+                    <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">Payment Method (Direct to Parking Owner)</label>
                     <div className="grid grid-cols-3 gap-2">
                       {["UPI", "CASH", "QR"].map((mode) => (
                         <button

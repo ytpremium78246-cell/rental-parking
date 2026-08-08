@@ -440,7 +440,7 @@ export default function OwnerDashboard() {
   };
 
   if (loading) {
-    return <div className="max-w-7xl mx-auto p-8 text-center text-[#7a7a7a]">Loading Owner Dashboard...</div>;
+    return <div className="max-w-7xl mx-auto p-8 text-center text-[#7a7a7a]">Loading Parking Owner Dashboard...</div>;
   }
 
   return (
@@ -448,7 +448,7 @@ export default function OwnerDashboard() {
       {/* Owner Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#e0e0e0] pb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#1d1d1f]">Owner Dashboard</h1>
+          <h1 className="text-3xl font-extrabold text-[#1d1d1f]">Parking Owner Dashboard</h1>
           <p className="text-sm text-[#7a7a7a]">
             Manage your parking spots, accept booking requests, and confirm direct UPI payments.
           </p>
@@ -587,7 +587,7 @@ export default function OwnerDashboard() {
 
                     <h3 className="font-bold text-base text-[#1d1d1f]">{booking.listing?.title}</h3>
                     <p className="text-xs text-[#7a7a7a]">
-                      Driver: <strong className="text-[#1d1d1f]">{booking.driver?.name}</strong> ({booking.driver?.phone}) • 
+                      Car Owner: <strong className="text-[#1d1d1f]">{booking.driver?.name}</strong> ({booking.driver?.phone}) • 
                       Trust: <strong className={booking.driver?.trustScore < 90 ? "text-red-600" : "text-[#0066cc]"}>{booking.driver?.trustScore}</strong> • 
                       Vehicle: <strong className="text-[#1d1d1f]">{booking.vehicleNumber}</strong>
                     </p>
@@ -862,7 +862,7 @@ export default function OwnerDashboard() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
-                    Owner Direct UPI ID (for Driver Payments)
+                    Parking Owner Direct UPI ID (for Car Owner Payments)
                   </label>
                   <input
                     type="text"
@@ -1056,7 +1056,7 @@ export default function OwnerDashboard() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
-                    Owner Direct UPI ID
+                    Parking Owner Direct UPI ID
                   </label>
                   <input
                     type="text"
@@ -1152,7 +1152,7 @@ export default function OwnerDashboard() {
                   disabled={actionLoading}
                   className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-xl transition shadow-sm"
                 >
-                  {actionLoading ? "Cancelling..." : "Confirm Owner Cancellation"}
+                  {actionLoading ? "Cancelling..." : "Confirm Parking Owner Cancellation"}
                 </button>
               </div>
             </div>
@@ -1282,7 +1282,7 @@ export default function OwnerDashboard() {
             <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#e0e0e0] space-y-4">
               <div className="flex items-center space-x-2 text-green-600 border-b border-[#f0f0f0] pb-3">
                 <CheckCircle2 className="w-6 h-6" />
-                <h2 className="text-lg font-bold text-[#1d1d1f]">Verify Driver Code</h2>
+                <h2 className="text-lg font-bold text-[#1d1d1f]">Verify Car Owner Code</h2>
               </div>
               
               <div className="bg-green-50 p-4 rounded-xl border border-green-100">

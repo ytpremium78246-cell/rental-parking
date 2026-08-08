@@ -204,7 +204,7 @@ export default function DriverDashboard() {
   };
 
   if (loading) {
-    return <div className="max-w-7xl mx-auto p-8 text-center text-[#7a7a7a]">Loading Driver Dashboard...</div>;
+    return <div className="max-w-7xl mx-auto p-8 text-center text-[#7a7a7a]">Loading Car Owner Dashboard...</div>;
   }
 
   return (
@@ -212,7 +212,7 @@ export default function DriverDashboard() {
       {/* Driver Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#e0e0e0] pb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#1d1d1f]">Driver Dashboard</h1>
+          <h1 className="text-3xl font-extrabold text-[#1d1d1f]">Car Owner Dashboard</h1>
           <p className="text-sm text-[#7a7a7a]">Manage your active bookings, direct UPI payments, and history.</p>
         </div>
 
@@ -323,7 +323,7 @@ export default function DriverDashboard() {
                     {isAccepted && !booking.timerStartedAt && (
                       <div className="mt-2 p-3 bg-[#f8f9fa] border border-[#e0e0e0] rounded-xl flex items-center justify-between">
                         <div>
-                          <p className="text-xs text-[#7a7a7a] font-semibold">Verification Code for Owner:</p>
+                          <p className="text-xs text-[#7a7a7a] font-semibold">Verification Code for Parking Owner:</p>
                           <p className="text-lg font-bold tracking-widest text-[#1d1d1f]">{booking.verificationCode}</p>
                         </div>
                         <div className="text-right">
@@ -360,14 +360,14 @@ export default function DriverDashboard() {
                         className="px-4 py-2 bg-[#0066cc] hover:bg-[#0071e3] text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center space-x-1"
                       >
                         <IndianRupee className="w-4 h-4" />
-                        <span>Pay Owner Direct (UPI/QR)</span>
+                        <span>Pay Parking Owner Direct (UPI/QR)</span>
                       </button>
                     )}
 
                     {isDriverConfirmed && (
                       <div className="px-3 py-2 bg-blue-50 border border-blue-200 text-[#0071e3] text-xs font-semibold rounded-xl flex items-center space-x-1">
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Payment Sent (Awaiting Owner Confirmation)</span>
+                        <span>Payment Sent (Awaiting Parking Owner Confirmation)</span>
                       </div>
                     )}
 
@@ -393,7 +393,7 @@ export default function DriverDashboard() {
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#e0e0e0] space-y-5">
               <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-3">
-                <h2 className="text-lg font-bold text-[#1d1d1f]">Direct P2P Payment to Owner</h2>
+                <h2 className="text-lg font-bold text-[#1d1d1f]">Direct P2P Payment to Parking Owner</h2>
                 <button onClick={() => setActivePaymentBooking(null)} className="text-[#7a7a7a] hover:text-[#1d1d1f]">
                   ✕
                 </button>
@@ -439,15 +439,15 @@ export default function DriverDashboard() {
                 <div className="space-y-4">
                   <div className="bg-[#f8f9fa] p-4 rounded-xl border border-[#e0e0e0] space-y-2">
                     <div className="flex justify-between text-xs text-[#7a7a7a]">
-                      <span>Owner Name:</span>
+                      <span>Parking Owner Name:</span>
                       <strong className="text-[#1d1d1f]">{activePaymentBooking.owner?.name}</strong>
                     </div>
                     <div className="flex justify-between text-xs text-[#7a7a7a]">
-                      <span>Owner Phone:</span>
+                      <span>Parking Owner Phone:</span>
                       <strong className="text-[#1d1d1f]">{activePaymentBooking.owner?.phone}</strong>
                     </div>
                     <div className="flex justify-between text-sm font-bold text-[#0066cc]">
-                      <span>Owner UPI ID:</span>
+                      <span>Parking Owner UPI ID:</span>
                       <span className="font-mono bg-white px-2 py-0.5 rounded border border-[#e0e0e0]">
                         {activePaymentBooking.owner?.upiId || "owner@upi"}
                       </span>
@@ -492,7 +492,7 @@ export default function DriverDashboard() {
                     disabled={actionLoading}
                     className="w-full py-3 bg-[#0066cc] hover:bg-[#0071e3] text-white font-bold text-sm rounded-xl transition shadow-sm"
                   >
-                    I Have Sent Payment to Owner
+                    I Have Sent Payment to Parking Owner
                   </button>
                 </div>
               )}

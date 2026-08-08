@@ -24,7 +24,7 @@ export default function RootLayout({
           <div className="max-w-7xl mx-auto px-4">
             <p>© {new Date().getFullYear()} Parking India. P2P Parking Marketplace.</p>
             <p className="text-xs mt-1 text-[#7a7a7a]">
-              Direct Driver → Owner Payments via UPI | Penalty Engine & Trust Protection
+              Direct Car Owner → Parking Owner Payments via UPI | Penalty Engine & Trust Protection
             </p>
           </div>
         </footer>

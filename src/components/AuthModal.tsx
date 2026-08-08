@@ -126,7 +126,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     role === "DRIVER" ? "bg-[#0066cc] text-white border-[#0066cc]" : "bg-white text-[#1d1d1f] border-[#e0e0e0]"
                   }`}
                 >
-                  Register as Driver
+                  Register as Car Owner
                 </button>
                 <button
                   type="button"
@@ -135,7 +135,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     role === "OWNER" ? "bg-[#0066cc] text-white border-[#0066cc]" : "bg-white text-[#1d1d1f] border-[#e0e0e0]"
                   }`}
                 >
-                  Register as Owner
+                  Register as Parking Owner
                 </button>
               </div>
 

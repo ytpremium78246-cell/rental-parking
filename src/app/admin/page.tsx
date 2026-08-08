@@ -99,7 +99,7 @@ export default function AdminDashboard() {
             </div>
             <div className="text-2xl font-extrabold text-[#1d1d1f]">{stats.totalUsers}</div>
             <div className="text-[11px] text-[#7a7a7a]">
-              {stats.totalOwners} Owners • {stats.totalDrivers} Drivers
+              {stats.totalOwners} Parking Owners • {stats.totalDrivers} Car Owners
             </div>
           </div>
 
@@ -145,8 +145,8 @@ export default function AdminDashboard() {
               <thead className="bg-[#f8f9fa] border-b border-[#e0e0e0] text-[#7a7a7a] uppercase font-semibold">
                 <tr>
                   <th className="p-3">Booking Code</th>
-                  <th className="p-3">Driver</th>
-                  <th className="p-3">Owner</th>
+                  <th className="p-3">Car Owner</th>
+                  <th className="p-3">Parking Owner</th>
                   <th className="p-3">Parking Spot</th>
                   <th className="p-3">Amount</th>
                   <th className="p-3">Status</th>

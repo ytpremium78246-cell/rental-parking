@@ -177,11 +177,11 @@ export default function Home() {
             <ul className="space-y-3 text-xs text-[#1d1d1f]">
               <li className="flex items-start space-x-2">
                 <CheckCircle className="w-4 h-4 text-[#0066cc] flex-shrink-0 mt-0.5" />
-                <span><strong>5-Min Grace Period for Drivers:</strong> Cancel for free within 5 minutes. ₹10 fee thereafter.</span>
+                <span><strong>5-Min Grace Period for Car Owners:</strong> Cancel for free within 5 minutes. ₹10 fee thereafter.</span>
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle className="w-4 h-4 text-[#0066cc] flex-shrink-0 mt-0.5" />
-                <span><strong>3-Min Grace Period for Owners:</strong> Owners can cancel free within 3 minutes of acceptance.</span>
+                <span><strong>3-Min Grace Period for Parking Owners:</strong> Parking Owners can cancel free within 3 minutes of acceptance.</span>
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle className="w-4 h-4 text-[#0066cc] flex-shrink-0 mt-0.5" />
@@ -205,7 +205,7 @@ export default function Home() {
             <div className="space-y-4">
               <div className="p-4 bg-[#f8f9fa] rounded-2xl border border-[#e0e0e0] flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-[#7a7a7a]">Default Driver Trust Score</div>
+                  <div className="text-xs text-[#7a7a7a]">Default Car Owner Trust Score</div>
                   <div className="text-xl font-bold text-[#1d1d1f]">100 / 100</div>
                 </div>
                 <Award className="w-8 h-8 text-[#0066cc]" />
