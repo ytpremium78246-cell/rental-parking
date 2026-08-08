@@ -1,0 +1,223 @@
+// Prisma Schema for Parking India - P2P Parking Marketplace (SQLite Compatible)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Role: "DRIVER" | "OWNER" | "ADMIN"
+// VehicleType: "CAR_4W" | "BIKE_2W" | "EV_4W" | "EV_2W"
+// BookingStatus: "Pending" | "Accepted" | "Rejected" | "Expired" | "CancelledByDriver" | "CancelledByOwner" | "MutualCancel" | "Completed" | "NoShow" | "Disputed"
+// PaymentMode: "UPI" | "CASH" | "QR"
+// PaymentStatus: "PENDING" | "DRIVER_CONFIRMED" | "OWNER_CONFIRMED" | "SETTLED"
+// PenaltyStatus: "OUTSTANDING" | "PAID"
+// NotificationType: "BOOKING_UPDATE" | "PENALTY_ALERT" | "DISPUTE_ALERT" | "SYSTEM"
+// DisputeStatus: "OPEN" | "UNDER_REVIEW" | "RESOLVED_DRIVER_FAVOR" | "RESOLVED_OWNER_FAVOR" | "MUTUAL_SETTLED"
+
+model User {
+  id            String   @id @default(uuid())
+  phone         String   @unique
+  email         String?  @unique
+  name          String
+  role          String   @default("DRIVER") // DRIVER | OWNER | ADMIN
+  passwordHash  String
+  trustScore    Int      @default(100)
+  isVerified    Boolean  @default(false)
+  language      String   @default("en") // "en" | "hi"
+  upiId         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile               UserProfile?
+  ownedListings         ParkingListing[]        @relation("OwnerListings")
+  driverBookings        Booking[]               @relation("DriverBookings")
+  ownerBookings         Booking[]               @relation("OwnerBookings")
+  penalties             PenaltyLedger[]
+  givenReviews          Review[]                @relation("Reviewer")
+  receivedReviews       Review[]                @relation("ReviewTarget")
+  notifications         Notification[]
+  disputesRaised        Dispute[]               @relation("DisputeRaiser")
+  trustHistory          TrustHistory[]
+  paymentConfirmations PaymentConfirmation[]
+  auditLogs             AuditLog[]
+  penaltiesOwedToMe     PenaltyLedger[]         @relation("PenaltyAggrievedUser")
+}
+
+model UserProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleNumber String?
+  vehicleType   String?  // CAR_4W | BIKE_2W | EV_4W | EV_2W
+  licenseNumber String?
+  govtIdUrl     String?
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  bio           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ParkingListing {
+  id               String   @id @default(uuid())
+  ownerId          String
+  owner            User     @relation("OwnerListings", fields: [ownerId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  address          String
+  city             String
+  state            String
+  pincode          String
+  latitude         Float
+  longitude        Float
+  ratePerHour      Float
+  ratePerDay       Float?
+  slotType         String   @default("CAR_4W") // CAR_4W | BIKE_2W | EV_4W | EV_2W
+  totalSlots       Int      @default(1)
+  availableSlots   Int      @default(1)
+  isCovered        Boolean  @default(false)
+  hasCctv          Boolean  @default(false)
+  hasSecurityGuard Boolean  @default(false)
+  upiId            String
+  qrCodeUrl        String?
+  imageUrl         String?
+  isAvailable      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  bookings Booking[]
+  reviews  Review[]
+}
+
+model Booking {
+  id                  String        @id @default(uuid())
+  bookingCode         String        @unique
+  driverId            String
+  driver              User          @relation("DriverBookings", fields: [driverId], references: [id])
+  ownerId             String
+  owner               User          @relation("OwnerBookings", fields: [ownerId], references: [id])
+  listingId           String
+  listing             ParkingListing @relation(fields: [listingId], references: [id])
+  status              String        @default("Pending") // Pending | Accepted | Rejected | Expired | CancelledByDriver | CancelledByOwner | MutualCancel | Completed | NoShow | Disputed
+  startTime           DateTime
+  endTime             DateTime
+  totalHours          Float
+  amount              Float
+  vehicleNumber       String
+  vehicleType         String        @default("CAR_4W")
+  paymentMode         String        @default("UPI") // UPI | CASH | QR
+  paymentStatus       String        @default("PENDING") // PENDING | DRIVER_CONFIRMED | OWNER_CONFIRMED | SETTLED
+  driverConfirmedAt   DateTime?
+  ownerConfirmedAt    DateTime?
+  cancellationReason  String?
+  cancelledByUserId   String?
+  penaltyAmount       Float         @default(0.0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  penalties            PenaltyLedger[]
+  paymentConfirmations PaymentConfirmation[]
+  reviews              Review[]
+  disputes             Dispute[]
+  trustHistory         TrustHistory[]
+}
+
+model PenaltyLedger {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aggrievedUserId String?
+  aggrievedUser   User?     @relation("PenaltyAggrievedUser", fields: [aggrievedUserId], references: [id])
+  bookingId       String?
+  booking         Booking?  @relation(fields: [bookingId], references: [id])
+  amount          Float
+  reason          String
+  status          String    @default("OUTSTANDING") // OUTSTANDING | PENDING_CONFIRMATION | PAID
+  createdAt       DateTime  @default(now())
+  paidAt          DateTime?
+  paymentRef      String?
+}
+
+model PaymentConfirmation {
+  id                String   @id @default(uuid())
+  bookingId         String
+  booking           Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  confirmedByUserId String
+  user              User     @relation(fields: [confirmedByUserId], references: [id])
+  role              String   // DRIVER | OWNER
+  paymentMode       String   // UPI | CASH | QR
+  transactionRef    String?
+  isConfirmed       Boolean  @default(true)
+  createdAt         DateTime @default(now())
+}
+
+model Review {
+  id           String         @id @default(uuid())
+  bookingId    String
+  booking      Booking        @relation(fields: [bookingId], references: [id])
+  reviewerId   String
+  reviewer     User           @relation("Reviewer", fields: [reviewerId], references: [id])
+  targetUserId String
+  targetUser   User           @relation("ReviewTarget", fields: [targetUserId], references: [id])
+  listingId    String
+  listing      ParkingListing @relation(fields: [listingId], references: [id])
+  rating       Int            // 1 to 5
+  comment      String?
+  createdAt    DateTime       @default(now())
+}
+
+model TrustHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookingId   String?
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+  scoreChange Int      // e.g., -2, -5, +1
+  reason      String
+  newScore    Int
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("SYSTEM") // BOOKING_UPDATE | PENALTY_ALERT | DISPUTE_ALERT | SYSTEM
+  isRead    Boolean  @default(false)
+  actionUrl String?
+  createdAt DateTime @default(now())
+}
+
+model Dispute {
+  id             String    @id @default(uuid())
+  bookingId      String
+  booking        Booking   @relation(fields: [bookingId], references: [id])
+  raisedByUserId String
+  raisedByUser   User      @relation("DisputeRaiser", fields: [raisedByUserId], references: [id])
+  reason         String
+  evidenceNote   String?
+  evidenceUrl    String?
+  status         String    @default("OPEN") // OPEN | UNDER_REVIEW | RESOLVED_DRIVER_FAVOR | RESOLVED_OWNER_FAVOR | MUTUAL_SETTLED
+  adminNotes     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
