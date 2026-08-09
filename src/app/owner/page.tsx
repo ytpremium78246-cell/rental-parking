@@ -912,20 +912,24 @@ export default function OwnerDashboard() {
                     <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
                       Parking Space Image (Upload OR Web URL) <span className="text-red-500">*</span>
                     </label>
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-col gap-3">
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleImageUpload}
-                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                        className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
                       />
-                      <span className="text-xs text-[#7a7a7a] self-center">OR</span>
+                      <div className="flex items-center space-x-3">
+                        <div className="h-px bg-[#e0e0e0] flex-1"></div>
+                        <span className="text-xs text-[#7a7a7a] font-bold">OR</span>
+                        <div className="h-px bg-[#e0e0e0] flex-1"></div>
+                      </div>
                       <input
                         type="url"
                         placeholder="https://example.com/image.jpg"
                         value={formData.imageFile.startsWith("http") ? formData.imageFile : ""}
                         onChange={(e) => setFormData({ ...formData, imageFile: e.target.value })}
-                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                        className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
                       />
                     </div>
                     {formData.imageFile && !formData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image attached successfully.</p>}
@@ -1093,7 +1097,7 @@ export default function OwnerDashboard() {
                   <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
                     Parking Space Image (Upload OR Web URL)
                   </label>
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-3">
                     <input
                       type="file"
                       accept="image/*"
@@ -1111,17 +1115,21 @@ export default function OwnerDashboard() {
                           reader.readAsDataURL(file);
                         }
                       }}
-                      className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
                     />
-                      <span className="text-xs text-[#7a7a7a] self-center">OR</span>
-                      <input
-                        type="url"
-                        placeholder="https://example.com/image.jpg"
-                        value={editFormData.imageFile?.startsWith("http") ? editFormData.imageFile : ""}
-                        onChange={(e) => setEditFormData({ ...editFormData, imageFile: e.target.value })}
-                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
-                      />
+                    <div className="flex items-center space-x-3">
+                      <div className="h-px bg-[#e0e0e0] flex-1"></div>
+                      <span className="text-xs text-[#7a7a7a] font-bold">OR</span>
+                      <div className="h-px bg-[#e0e0e0] flex-1"></div>
                     </div>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/image.jpg"
+                      value={editFormData.imageFile?.startsWith("http") ? editFormData.imageFile : ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, imageFile: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
                     {editFormData.imageFile && !editFormData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image attached successfully.</p>}
                     {editFormData.imageFile && editFormData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image URL added.</p>}
                 </div>
