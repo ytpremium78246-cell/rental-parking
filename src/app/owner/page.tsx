@@ -1106,15 +1106,10 @@ export default function OwnerDashboard() {
                           }
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                            setEditFormData((prev: any) => ({ ...prev, imageFile: reader.result as string }));
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
-                    />
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-[#7a7a7a] font-bold">OR</span>
+                        }}
+                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                      />
+                      <span className="text-xs text-[#7a7a7a] self-center">OR</span>
                       <input
                         type="url"
                         placeholder="https://example.com/image.jpg"
@@ -1125,7 +1120,6 @@ export default function OwnerDashboard() {
                     </div>
                     {editFormData.imageFile && !editFormData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image attached successfully.</p>}
                     {editFormData.imageFile && editFormData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image URL added.</p>}
-                  </div>
                 </div>
 
                 <div className="flex gap-4 pt-2">
