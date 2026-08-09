@@ -24,14 +24,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ error: "You can only update your own listings" }, { status: 403 });
     }
 
+    let newImageUrl = existingListing.imageUrl;
+    if (body.imageFile) {
+      // Store the image directly in the database as a base64 data string or HTTP URL.
+      // This ensures images persist when deployed on platforms with ephemeral file systems like Render.
+      newImageUrl = body.imageFile;
+    }
+
+    // Remove imageFile from body before spreading to avoid Prisma schema error
+    const { imageFile, ...restBody } = body;
+
     const updatedListing = await prisma.parkingListing.update({
       where: { id: listingId },
       data: {
-        ...body,
-        ratePerHour: body.ratePerHour ? parseFloat(body.ratePerHour) : existingListing.ratePerHour,
-        totalSlots: body.totalSlots ? parseInt(body.totalSlots) : existingListing.totalSlots,
-        availableSlots: body.totalSlots ? parseInt(body.totalSlots) : existingListing.availableSlots,
-        isAvailable: body.isAvailable !== undefined ? Boolean(body.isAvailable) : existingListing.isAvailable,
+        ...restBody,
+        ratePerHour: restBody.ratePerHour ? parseFloat(restBody.ratePerHour) : existingListing.ratePerHour,
+        totalSlots: restBody.totalSlots ? parseInt(restBody.totalSlots) : existingListing.totalSlots,
+        availableSlots: restBody.totalSlots ? parseInt(restBody.totalSlots) : existingListing.availableSlots,
+        isAvailable: restBody.isAvailable !== undefined ? Boolean(restBody.isAvailable) : existingListing.isAvailable,
+        imageUrl: newImageUrl,
       },
     });
 

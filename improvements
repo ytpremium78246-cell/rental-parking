@@ -202,4 +202,4 @@ The existing booking features should be the **default experience for every booki
 
 Before modifying code, inspect the existing driver and owner dashboards and preserve every existing action/button/function unless it is specifically an automatic expiry/timeout mechanism.
 
-Do not ask me to choose between alternatives. Implement exactly this behavior.
+Do not ask me to choose between alternatives. Implement exactly this behavior. 

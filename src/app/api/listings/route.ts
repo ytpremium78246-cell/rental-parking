@@ -121,24 +121,9 @@ export async function POST(request: Request) {
 
     let imageUrl = null;
     if (imageFile) {
-      if (imageFile.startsWith("http://") || imageFile.startsWith("https://")) {
-        imageUrl = imageFile;
-      } else {
-        // Basic base64 to file conversion
-        try {
-          const base64Data = imageFile.replace(/^data:image\/\w+;base64,/, "");
-          const buffer = Buffer.from(base64Data, 'base64');
-          const filename = `parking-${Date.now()}.jpg`;
-          const fs = require('fs');
-          const path = require('path');
-          const filePath = path.join(process.cwd(), 'public', 'uploads', filename);
-          fs.writeFileSync(filePath, buffer);
-          imageUrl = `/uploads/${filename}`;
-        } catch (err) {
-          console.error("Error saving image:", err);
-          return NextResponse.json({ error: "Failed to save image." }, { status: 500 });
-        }
-      }
+      // Store the image directly in the database as a base64 data string or HTTP URL.
+      // This ensures images persist when deployed on platforms with ephemeral file systems like Render.
+      imageUrl = imageFile;
     }
 
     const newListing = await prisma.parkingListing.create({

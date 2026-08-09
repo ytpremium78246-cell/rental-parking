@@ -277,6 +277,7 @@ export default function OwnerDashboard() {
       hasCctv: listing.hasCctv,
       hasSecurityGuard: listing.hasSecurityGuard,
       upiId: listing.upiId,
+      imageFile: listing.imageUrl || "",
     });
     setEditError("");
     setIsEditOpen(true);
@@ -718,6 +719,17 @@ export default function OwnerDashboard() {
                 </div>
 
                 <h3 className="font-bold text-base text-[#1d1d1f]">{item.title}</h3>
+                
+                {item.imageUrl && (
+                  <div className="w-full h-32 rounded-xl overflow-hidden bg-gray-100 my-2">
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
                 <p className="text-xs text-[#7a7a7a] flex items-center space-x-1">
                   <MapPin className="w-3.5 h-3.5" />
                   <span>{item.address}, {item.city}</span>
@@ -1075,6 +1087,45 @@ export default function OwnerDashboard() {
                     onChange={(e) => setEditFormData({ ...editFormData, upiId: e.target.value })}
                     className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm font-mono focus:outline-none focus:border-[#0066cc]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#1d1d1f] mb-1">
+                    Parking Space Image (Upload OR Web URL)
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            setEditError("Image size must be less than 5MB");
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setEditFormData((prev: any) => ({ ...prev, imageFile: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-[#7a7a7a] font-bold">OR</span>
+                      <input
+                        type="url"
+                        placeholder="https://example.com/image.jpg"
+                        value={editFormData.imageFile?.startsWith("http") ? editFormData.imageFile : ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, imageFile: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                      />
+                    </div>
+                    {editFormData.imageFile && !editFormData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image attached successfully.</p>}
+                    {editFormData.imageFile && editFormData.imageFile.startsWith("http") && <p className="text-xs text-green-600 mt-1">Image URL added.</p>}
+                  </div>
                 </div>
 
                 <div className="flex gap-4 pt-2">
