@@ -1106,9 +1106,13 @@ export default function OwnerDashboard() {
                           }
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                        }}
-                        className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
-                      />
+                            setEditFormData((prev: any) => ({ ...prev, imageFile: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-[#e0e0e0] rounded-xl text-sm focus:outline-none focus:border-[#0066cc]"
+                    />
                       <span className="text-xs text-[#7a7a7a] self-center">OR</span>
                       <input
                         type="url"
